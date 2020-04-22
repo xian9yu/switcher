@@ -1,0 +1,45 @@
+{
+  "log_level": "debug",
+  "rules": [
+    {
+      "name": "8007",
+      "listen": ":8007",
+      "enable_regexp": true,
+      "first_packet_timeout": 5000,
+      "targets": [
+        {
+          "regexp": "^\\x16\\x03\\x01\\x02",
+          "address": "127.0.0.1:8009"
+        },
+        {
+          "regexp": "^\\x20\\x00",
+          "address": "127.0.0.1:8008"
+        },
+        {
+          "regexp": "^SSH",
+          "address": "127.0.0.1:8010"
+        }
+      ]
+    },
+    {
+      "name": "8008",
+      "listen": ":8008",
+      "enable_regexp": true,
+      "first_packet_timeout": 5000,
+      "targets": [
+        {
+          "regexp": "^\\x16\\x03\\x01\\x02",
+          "address": "127.0.0.1:8009"
+        },
+        {
+          "regexp": "^\\x20\\x00",
+          "address": "127.0.0.1:8008"
+        },
+        {
+          "regexp": "^SSH",
+          "address": "127.0.0.1:8010"
+        }
+      ]
+    }
+  ]
+}
