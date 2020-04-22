@@ -3,7 +3,7 @@ switcher是一个多功能的端口转发工具，支持转发本地的端口，
 
 程序占用CPU和内存资源极低。
 
-###v3版本，参考自: 
+## v3版本，参考自: 
 
 1.https://github.com/jamescun/switcher
 
@@ -102,10 +102,10 @@ switcher是一个多功能的端口转发工具，支持转发本地的端口，
 2. SSH无法连接请更换最新版putty或MobaXterm，因为SSH本来属于服务器主动握手的协议，但有些软件遵守有些软件不遵守，所以请选择客户端主动握手的软件。
 
 
-###遇到了问题？
+### 遇到了问题？
 欢迎提issue或Pull Request
 
-###License
+### License
 3-Clause "Modified" BSD Licence.
 
 [License](LICENSE)
