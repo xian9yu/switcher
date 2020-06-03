@@ -1,15 +1,7 @@
-## switcher v3
+## switcher v2.4
 switcher是一个多功能的端口转发工具，支持转发本地的端口，支持正则表达式转发（实现端口复用）。
 
-程序占用CPU和内存资源极低。
-
-## v3版本，参考自: 
-
-1.https://github.com/jamescun/switcher
-
-2.https://github.com/jackyspy/switcher
-
-3.https://github.com/crabkun/Switcher
+占用CPU和内存资源极低。
 
 ## 使用方法
 配置好目录下的config.json后，直接运行就行
