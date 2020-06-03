@@ -2,11 +2,10 @@ package main
 
 import (
 	"io"
+	"log"
 	"net"
 	"sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 type TimeJudge struct {
@@ -16,28 +15,27 @@ type TimeJudge struct {
 	firstPacket []byte
 }
 
-func listen(rule *ruleStructure, wg *sync.WaitGroup) {
+func listen(rule *rules, wg *sync.WaitGroup) {
 	defer wg.Done()
 	//监听
 	listener, err := net.Listen("tcp", rule.Listen)
 	if err != nil {
-		logrus.Errorf("[%s] failed to listen at %s", rule.Name, rule.Listen)
+		log.Printf("[ERROR] [%s] failed to listen at %s", rule.Name, rule.Listen)
 		return
 	}
-	logrus.Infof("[%s] listing at %s", rule.Name, rule.Listen)
+	log.Printf("[INFO] [%s] listing at %s", rule.Name, rule.Listen)
 
 	for {
 		//处理客户端连接
 		conn, err := listener.Accept()
 		if err != nil {
-			logrus.Errorf("[%s] failed to accept at %s", rule.Name, rule.Listen)
+			log.Printf("[ERROR] [%s] failed to accept at %s", rule.Name, rule.Listen)
 			break
 		}
 
 		go handleRegexp(conn, rule)
 
 	}
-	return
 }
 
 //timeJudge
@@ -54,7 +52,7 @@ func timeJudge(t *TimeJudge) {
 	t.twg.Done()
 }
 
-func handleRegexp(conn net.Conn, rule *ruleStructure) {
+func handleRegexp(conn net.Conn, rule *rules) {
 	t := &TimeJudge{
 		readDone: false,
 		timeDone: false,
@@ -67,16 +65,17 @@ func handleRegexp(conn net.Conn, rule *ruleStructure) {
 	go timeJudge(t)
 
 	t.twg.Wait()
-	//fmt.Println("", t.firstPacket)
-	//fmt.Println("-----timeDone", t.timeDone)
+
 	if t.timeDone {
 		target, err := net.Dial("tcp", "127.0.0.1:3306")
 		if err != nil {
-			logrus.Errorf("could not dail mysql:", err)
+			log.Println("[ERROR] could not dial mysql:", err)
 			return
 		}
-		//target.Write(t.firstPacket)
-		target.Write([]byte{32, 0, 0, 1, 133})
+		_, err = target.Write([]byte{32, 0, 0, 1, 133})
+		if err != nil {
+			log.Println("[ERROR] conn.Write error :", err)
+		}
 		go muxBridge(conn, target)
 	} else if t.readDone {
 		var target net.Conn
@@ -88,7 +87,7 @@ func handleRegexp(conn net.Conn, rule *ruleStructure) {
 
 			c, err := net.Dial("tcp", v.Address)
 			if err != nil {
-				logrus.Errorf("[%s] try to handle connection (%s) failed because target (%s) connected failed, try next match target.",
+				log.Printf("[ERROR] [%s] try to handle connection (%s) failed because target (%s) connected failed, try next match target.",
 					rule.Name, conn.RemoteAddr(), v.Address)
 				continue
 			}
@@ -97,15 +96,17 @@ func handleRegexp(conn net.Conn, rule *ruleStructure) {
 		}
 
 		if target == nil {
-			logrus.Errorf("[%s] unable to handle connection (%s) because no match target",
+			log.Printf("[ERROR] [%s] unable to handle connection (%s) because no match target",
 				rule.Name, conn.RemoteAddr())
 			return
 		}
-
-		logrus.Debugf("[%s] handle connection (%s) to target (%s)", rule.Name, conn.RemoteAddr(), target.RemoteAddr())
+		log.Printf("[INFO] [%s] handle connection (%s) to target (%s)", rule.Name, conn.RemoteAddr(), target.RemoteAddr())
 
 		//把第一个数据包发送给目标
-		target.Write(t.firstPacket)
+		_, err := target.Write(t.firstPacket)
+		if err != nil {
+			log.Println("[ERROR] conn.Write error: ", err)
+		}
 
 		//io桥
 		go tcpBridge(conn, target)
@@ -122,9 +123,9 @@ func waitFirstPacket(conn net.Conn, t *TimeJudge) {
 	n, err := io.ReadAtLeast(conn, buf, length)
 	if err != nil {
 		if t.timeDone {
-			logrus.Errorf("conn read timeout!")
+			log.Println("conn read timeout!")
 		} else {
-			logrus.Errorf("conn read error: ", err)
+			log.Println("conn read error: ", err)
 		}
 	} else {
 		t.readDone = true
@@ -136,16 +137,20 @@ func waitFirstPacket(conn net.Conn, t *TimeJudge) {
 
 func tcpBridge(a, b net.Conn) {
 	defer func() {
-		a.Close()
-		b.Close()
+		_ = a.Close()
+		_ = b.Close()
 	}()
 	buf := make([]byte, 2048)
 	for {
 		n, err := a.Read(buf)
 		if err != nil {
+			log.Println("[ERROR] conn.Read error: ", err)
 			return
 		}
-		b.Write(buf[:n])
+		_, err = b.Write(buf[:n])
+		if err != nil {
+			log.Println("[ERROR] conn.Write error: ", err)
+		}
 	}
 }
 
@@ -155,17 +160,24 @@ func muxBridge(conn, mysql net.Conn) {
 
 	go func(conn, mysql net.Conn) {
 		defer wg.Done()
-		io.Copy(conn, mysql)
+		_, err := io.Copy(conn, mysql)
+		if err != nil {
+			log.Println("[ERROR] io.Copy error: ", err)
+		}
 		//conn.Close()
 	}(conn, mysql)
 
 	go func(conn, mysql net.Conn) {
 		defer wg.Done()
-		io.Copy(mysql, conn)
+		_, err := io.Copy(mysql, conn)
+		if err != nil {
+			log.Println("[ERROR] io.Copy error: ", err)
+		}
+
 		//mysql.Close()
 	}(conn, mysql)
 
 	wg.Wait()
-	mysql.Close()
-	conn.Close()
+	_ = mysql.Close()
+	_ = conn.Close()
 }
