@@ -1,33 +1,32 @@
 package main
 
-import ( 
+import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
-
-	"github.com/sirupsen/logrus"
 )
 
-type configStructure struct {
-	LogLevel string           `json:"log_level"`
-	Rules    []*ruleStructure `json:"rules"`
+type configs struct {
+	//LogLevel string           `json:"log_level"`
+	Rules []*rules `json:"rules"`
 }
 
-type ruleStructure struct {
-	Name         string `json:"name"`
-	Listen       string `json:"listen"`
-	EnableRegexp bool   `json:"enable_regexp"`
-	Targets      []*struct {
+type rules struct {
+	Name   string `json:"name"`
+	Listen string `json:"listen"`
+	//EnableRegexp bool   `json:"enable_regexp"`
+	Targets []*struct {
 		Regexp  string         `json:"regexp"`
-		regexp  *regexp.Regexp `json:"-"`
+		regexp  *regexp.Regexp //`json:"-"`
 		Address string         `json:"address"`
 	} `json:"targets"`
-	FirstPacketTimeout uint64 `json:"first_packet_timeout"`
+	//FirstPacketTimeout uint64 `json:"first_packet_timeout"`
 }
 
-var config *configStructure
+var config *configs
 
 func init() {
 	var configPath = "./config.json"
@@ -36,55 +35,46 @@ func init() {
 	}
 	buf, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		logrus.Fatalf("failed to load config.json: %s", err.Error())
+		log.Printf("[ERROR] failed to load config.json: %s", err)
 	}
 
 	if err := json.Unmarshal(buf, &config); err != nil {
-		logrus.Fatalf("failed to load config.json: %s", err.Error())
+		log.Printf("[ERROR] failed to load config.json: %s", err)
 	}
 
 	if len(config.Rules) == 0 {
-		logrus.Fatalf("empty rule", err.Error())
+		log.Println("[ERROR] empty rule", err)
 	}
-	lvl, err := logrus.ParseLevel(config.LogLevel)
-	if err != nil {
-		logrus.Fatalf("invalid log_level")
-	}
-	logrus.SetLevel(lvl)
 
 	for i, v := range config.Rules {
 		if err := v.verify(); err != nil {
-			logrus.Fatalf("verity rule failed at pos %d : %s", i, err.Error())
+			log.Printf("[ERROR] verity rule failed at pos %d : %s", i, err)
 		}
 	}
 }
 
-func (c *ruleStructure) verify() error {
-	if c.Name == "" {
-		return fmt.Errorf("empty name")
+func (r *rules) verify() error {
+	if r.Name == "" {
+		return fmt.Errorf("[ERROR] empty name")
 	}
-	if c.Listen == "" {
-		return fmt.Errorf("invalid listen address")
+	if r.Listen == "" {
+		return fmt.Errorf("[ERROR] invalid listen address")
 	}
-	if len(c.Targets) == 0 {
-		return fmt.Errorf("invalid targets")
+	if len(r.Targets) == 0 {
+		return fmt.Errorf("[ERROR] invalid targets")
 	}
-	if c.EnableRegexp {
-		if c.FirstPacketTimeout == 0 {
-			c.FirstPacketTimeout = 5000
-		}
-	}
-	for i, v := range c.Targets {
+
+	for i, v := range r.Targets {
 		if v.Address == "" {
-			return fmt.Errorf("invalid address at pos %d", i)
+			return fmt.Errorf("[ERROR] invalid address at pos %d", i)
 		}
-		if c.EnableRegexp {
-			r, err := regexp.Compile(v.Regexp)
-			if err != nil {
-				return fmt.Errorf("invalid regexp at pos %d : %s", i, err.Error())
-			}
-			v.regexp = r
+		//if r.EnableRegexp {
+		r, err := regexp.Compile(v.Regexp)
+		if err != nil {
+			return fmt.Errorf("[ERROR] invalid regexp at pos %d : %s", i, err.Error())
 		}
+		v.regexp = r
+		//}
 	}
 	return nil
 }
